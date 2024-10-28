@@ -1,5 +1,5 @@
 gobang:gobang.cc
-	g++ $^ -o $@ -std=c++11
+	g++ $^ -o $@ -std=c++11 -L/lib64/mysql -lmysqlclient -ljsoncpp
 .PHONY:clean
 clean:
 	rm -rf gobang
