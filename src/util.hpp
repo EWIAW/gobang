@@ -1,4 +1,5 @@
 #pragma once
+#include <fstream>
 #include <string>
 #include <vector>
 #include <memory>
@@ -20,7 +21,7 @@ public:
                                const std::string &database,
                                const uint16_t &port = 3306)
     {
-        // 1.初始化MYSQL结构体
+        // 1.初始化MYSQL结构体，获取MySQL句柄
         MYSQL *mysql = mysql_init(nullptr);
         if (mysql == nullptr)
         {
@@ -60,11 +61,12 @@ public:
     {
         if (mysql_query(mysql, sql.c_str()) != 0)
         {
-            ELOG("%s", sql.c_str());
+            // ELOG("%s", sql.c_str());
             ELOG("mysql query failed : %d", mysql_errno(mysql));
             return false;
         }
-        DLOG("mysql query success : %s", sql.c_str());
+        // DLOG("mysql query success : %s", sql.c_str());
+        // DLOG("mysql query success");
 
         return true;
     }
@@ -148,5 +150,39 @@ public:
             left = right;
         }
         return res.size();
+    }
+};
+
+// 封装文件读工具类
+class read_util
+{
+public:
+    static bool read(const std::string &filename, std::string &body)
+    {
+        // 打开文件
+        std::ifstream ifs(filename, std::ios::binary); // 以二进制形式打开文件
+        // 判断文件是否打开成功
+        if (ifs.is_open() == false)
+        {
+            ELOG("%s open file failed", filename.c_str());
+            return false;
+        }
+
+        // 获取文件大小
+        size_t fsize = 0;
+        ifs.seekg(0, std::ios::end); // 将文件指针偏移到文件末尾
+        fsize = ifs.tellg();         // 获取文件指针的偏移量，即获取了文件的打开
+        ifs.seekg(0, std::ios::beg);
+        body.resize(fsize);
+
+        ifs.read(&body[0], fsize);
+        if (ifs.good() == false)
+        {
+            ELOG("%s file read failed", filename.c_str());
+            ifs.close();
+            return false;
+        }
+        ifs.close();
+        return true;
     }
 };

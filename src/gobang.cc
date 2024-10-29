@@ -58,11 +58,22 @@ void test_split()
     }
 }
 
+// 测试read_util读取文件工具类
+void test_read()
+{
+    std::string filename = "./test.txt";
+    std::string body;
+    read_util::read(filename, body);
+    std::cout << body << std::endl;
+}
+
 int main()
 {
     // test_log();
     // test_mysql();
     // test_json();
-    test_split();
+    // test_split();
+    test_read();
+
     return 0;
 }
