@@ -198,13 +198,37 @@ public:
     }
 
     // 胜利时，分数+30，胜场+1，总场数+1
-    void win()
+    bool win(const uint64_t &id)
     {
+#define USER_WIN "update user set score=score+30,total_count=total_count+1,win_count=win_count+1 where id = %d;"
+        char sql[4096] = {0};
+        sprintf(sql, USER_WIN, id);
+
+        bool ret = mysql_util::mysql_exec(_mysql, sql);
+        if (ret == false)
+        {
+            DLOG("update win user information failed");
+            return false;
+        }
+        DLOG("update win user information success");
+        return true;
     }
 
     // 失败时，分数-30，总场数+1
-    void lose()
+    bool lose(const uint64_t &id)
     {
+#define USER_LOSE "update user set score=score-30,total_count=total_count+1 where id = %d;"
+        char sql[4096] = {0};
+        sprintf(sql, USER_LOSE, id);
+
+        bool ret = mysql_util::mysql_exec(_mysql, sql);
+        if (ret == false)
+        {
+            DLOG("update lose user information failed");
+            return false;
+        }
+        DLOG("update lose user information success");
+        return true;
     }
 
 private:
