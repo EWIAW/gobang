@@ -12,7 +12,7 @@
 
 #include "log.hpp"
 
-typedef websocketpp::server<websocketpp::config::asio> server;
+typedef websocketpp::server<websocketpp::config::asio> server_t;
 
 // 封装数据库工具类
 class mysql_util
