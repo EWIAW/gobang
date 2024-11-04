@@ -1,6 +1,9 @@
 #include <iostream>
 #include "log.hpp"
 #include "util.hpp"
+#include "db.hpp"
+#include "online.hpp"
+#include "room.hpp"
 
 // 测试日志系统
 void test_log()

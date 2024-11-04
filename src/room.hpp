@@ -3,6 +3,9 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <memory>
+#include <mutex>
+#include <unordered_map>
 
 #include "db.hpp"
 #include "online.hpp"
@@ -88,7 +91,7 @@ public:
         Json::Value response;                    // 响应处理
         int chess_row = request["row"].asUInt(); // 下棋的位置
         int chess_col = request["col"].asUInt();
-        uint64_t play_chess_id = request["uid"].asUInt64(); // 用户下棋的id
+        uint64_t play_chess_id = request["uid"].asUInt64(); // 下棋用户的id
         // 1.在更新下棋位置的信息时，先判断对方有没有掉线，如果掉线了，直接获胜
         if (_online_user->is_in_game_room(_white_id) == false)
         {
@@ -108,7 +111,7 @@ public:
         if (_board[chess_row][chess_col] != 0) // 说明下棋的位置已经有棋子
         {
             response["result"] = false;
-            response["reason"] = "该位置已经有棋子，请重新选择位置下棋";
+            response["reason"] = "该位置已经有棋子，请重新选择位置下棋！！！";
             return response;
         }
         // 走到这里，所以下棋的位置是合理的，更新棋盘信息
@@ -123,7 +126,7 @@ public:
         }
         _board[chess_row][chess_col] = chess_color;
         // 3.下棋完成后判断是否获胜
-        uint64_t winner_id = check_win();
+        uint64_t winner_id = check_win(chess_row, chess_col, chess_color);
         if (winner_id != 0)
         {
             response["reason"] = "五星连珠，恭喜你获胜了！！！";
@@ -150,7 +153,7 @@ public:
         return response;
     }
 
-    // 处理玩家退出房间动作
+    // 处理玩家退出房间动作                                     !!!
     void handle_exit(const uint64_t &id)
     {
         Json::Value response;
@@ -185,14 +188,154 @@ public:
         return;
     }
 
+    // 总的请求处理函数，处理各种请求                                       !!!
+    void handle_request(const Json::Value &request)
+    {
+        Json::Value response;
+        // 1.判断房间号是否匹配
+        if (request["room_id"] != (Json::UInt64)_room_id)
+        {
+            response["optype"] = request["optype"].asCString();
+            response["result"] = false;
+            response["reason"] = "房间号不匹配！！！";
+            broadcast(response);
+            return;
+        }
+        // 2.开始处理各种请求
+        if (request["optype"].asCString() == "put_chess")
+        {
+            response = handle_chess(request);
+            if (response["winner"].asInt64() != 0) // 说明有人获胜了
+            {
+                uint64_t winner_id = response["winner"].asUInt64();
+                uint64_t loser_id = 0;
+                if (winner_id == _white_id)
+                {
+                    loser_id = _black_id;
+                }
+                else
+                {
+                    loser_id = _white_id;
+                }
+                _user_table->win(winner_id);
+                _user_table->lose(loser_id);
+                _room_status = GAME_OVER;
+            }
+        }
+        else if (request["optype"].asCString() == "chat")
+        {
+            response = handle_chat(request);
+        }
+        else
+        {
+            response["optype"] = request["optype"].asCString();
+            response["result"] = false;
+            response["reason"] = "未知类型";
+        }
+        std::string body;
+        json_util::serialize(response, body);
+        DLOG("房间-广播动作：%s", body.c_str());
+        broadcast(response);
+        return;
+    }
+
+    // 广播消息给房间所有用户
     void broadcast(const Json::Value &response)
     {
+        // 1.将需要广播的消息从json序列化成字符串
+        std::string body;
+        json_util::serialize(response, body);
+        // 2.获取客户端的连接
+        server_t::connection_ptr white_conn = _online_user->get_con_from_room(_white_id);
+        if (white_conn != nullptr)
+        {
+            white_conn->send(body);
+        }
+        else
+        {
+            DLOG("房间-白棋玩家获取连接失败");
+        }
+        server_t::connection_ptr black_conn = _online_user->get_con_from_room(_black_id);
+        if (black_conn != nullptr)
+        {
+            black_conn->send(body);
+        }
+        else
+        {
+            DLOG("房间-黑棋玩家获取连接失败");
+        }
+        return;
     }
 
 private:
-    // 判断是否获胜，如果获胜了，返回获胜者的id
-    uint64_t check_win()
+    // 判断某一方向上是否五星连珠
+    // row和col为下棋的位置，offset为偏移量，依次判断横竖斜四个方向是否五星连珠
+    bool five(const int row, const int col, const int offset_row, const int offset_col, const int chess_color)
     {
+        int count = 1;
+        int tmp_row = row;
+        int tmp_col = col;
+
+        tmp_row += offset_row;
+        tmp_col += offset_col;
+        while (tmp_row >= 0 && tmp_row < BOARD_ROW && tmp_col >= 0 && tmp_col < BOARD_COL)
+        {
+            if (_board[tmp_row][tmp_col] == chess_color)
+            {
+                count++;
+                tmp_row += offset_row;
+                tmp_col += offset_col;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        tmp_row = row;
+        tmp_col = col;
+        tmp_row -= offset_row;
+        tmp_col -= offset_col;
+        while (tmp_row >= 0 && tmp_row < BOARD_ROW && tmp_col >= 0 && tmp_col < BOARD_COL)
+        {
+            if (_board[tmp_row][tmp_col] == chess_color)
+            {
+                count++;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        if (count == 5)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    // 判断是否获胜，如果获胜了，返回获胜者的id
+    uint64_t check_win(const int row, const int col, const int chess_color)
+    {
+        if (five(row, col, 1, 0, chess_color) ||
+            five(row, col, 0, 1, chess_color) ||
+            five(row, col, 1, 1, chess_color) ||
+            five(row, col, -1, 1, chess_color))
+        {
+            if (chess_color == WHITE_CHESS)
+            {
+                return _white_id;
+            }
+            else
+            {
+                return _black_id;
+            }
+        }
+        return 0;
     }
 
 private:
@@ -204,4 +347,58 @@ private:
     user_table *_user_table;              // user表管理类
     online_manager *_online_user;         // 用户在线信息类
     std::vector<std::vector<int>> _board; // 棋盘
+};
+
+typedef std::shared_ptr<room> room_ptr;
+// using room_ptr = std::shared_ptr<room>;
+
+// 房间管理类
+class room_manager
+{
+public:
+    room_manager(user_table *user_tb, online_manager *_online_user)
+        : _next_room_id(1), _user_tb(user_tb), _online_user(_online_user)
+    {
+        DLOG("房间管理模块创建完毕！！！");
+    }
+
+    ~room_manager()
+    {
+        DLOG("房间管理模块销毁完毕！！！");
+    }
+
+    // 创建房间，当两个用户匹配成功时，为他们创建房间
+    room_ptr create_room(const uint64_t &id1, const uint64_t &id2)
+    {
+        // 在创建房间之前，先判断两个用户是否都还在大厅
+        if (_online_user->is_in_game_hall(id1) == false)
+        {
+            DLOG("用户：%lu 不在大厅中，创建房间失败", id1);
+            return room_ptr();
+        }
+        if (_online_user->is_in_game_hall(id2) == false)
+        {
+            DLOG("用户：%lu 不在大厅中，创建房间失败", id2);
+            return room_ptr();
+        }
+
+        // 说明两个用户都在大厅中，为他们创建房间
+        std::unique_lock<std::mutex> lock(_mutex);
+        room_ptr rp(new room(_next_room_id, _user_tb, _online_user));
+        rp->add_white_user(id1);
+        rp->add_black_user(id2);
+        _rooms.insert(std::make_pair(_next_room_id, rp));
+        _users.insert(std::make_pair(id1, _next_room_id));
+        _users.insert(std::make_pair(id2, _next_room_id));
+        _next_room_id++;
+        return rp;
+    }
+
+private:
+    uint64_t _next_room_id; // 给房间id进行编排序号
+    std::mutex _mutex;      // 互斥锁，用来保证哈希表的线程安全
+    user_table *_user_tb;
+    online_manager *_online_user;
+    std::unordered_map<uint64_t, room_ptr> _rooms; // 用来管理通过房间号来找到房间对象
+    std::unordered_map<uint64_t, uint64_t> _users; // 用来管理通过用户id找到房间id
 };

@@ -155,9 +155,9 @@ public:
     // 通过用户id查找用户数据
     bool select_by_id(const uint64_t &id, Json::Value &user)
     {
-#define SELECT_BY_NAME "select username,score,total_count,win_count from user where id=%d;"
+#define SELECT_BY_ID "select username,score,total_count,win_count from user where id=%d;"
         char sql[4096] = {0};
-        sprintf(sql, SELECT_BY_NAME, id);
+        sprintf(sql, SELECT_BY_ID, id);
 
         MYSQL_RES *res = nullptr;
         {
