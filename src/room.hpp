@@ -394,6 +394,71 @@ public:
         return rp;
     }
 
+    // 通过房间id获取房间信息
+    room_ptr get_room_by_room_id(const uint64_t &room_id)
+    {
+        std::unique_lock<std::mutex> lock(_mutex);
+        auto it = _rooms.find(room_id);
+        if (it == _rooms.end())
+        {
+            return room_ptr();
+        }
+        return it->second;
+    }
+
+    // 通过用户id获取房间信息
+    room_ptr get_room_by_user_id(const uint64_t &user_id)
+    {
+        std::unique_lock<std::mutex> lock(_mutex);
+        // 先通过用户id找到房间id
+        auto uit = _users.find(user_id);
+        if (uit == _users.end())
+        {
+            return room_ptr();
+        }
+        auto rit = _rooms.find(uit->second);
+        if (rit == _rooms.end())
+        {
+            return room_ptr();
+        }
+        return rit->second;
+    }
+
+    // 通过id销毁房间
+    void remove_room(const uint64_t &room_id)
+    {
+        // 先查找该房间，如果找到了才进行销毁
+        room_ptr rp = get_room_by_room_id(room_id);
+        if (rp == nullptr)
+        {
+            return;
+        }
+
+        std::unique_lock<std::mutex> lock(_mutex);
+        uint64_t uid1 = rp->get_white_id();
+        uint64_t uid2 = rp->get_black_id();
+        _users.erase(uid1);
+        _users.erase(uid2);
+        _rooms.erase(room_id);
+    }
+
+    // 删除房间中指定用户，用于用户断开连接时调用
+    void remove_user(const uint64_t &user_id)
+    {
+        // 先通过用户id查找房间在存不存在
+        room_ptr rp = get_room_by_user_id(user_id);
+        if (rp == nullptr)
+        {
+            return;
+        }
+        rp->handle_exit(user_id);
+        if (rp->get_player_count() == 0)
+        {
+            remove_room(rp->get_room_id());
+        }
+        return;
+    }
+
 private:
     uint64_t _next_room_id; // 给房间id进行编排序号
     std::mutex _mutex;      // 互斥锁，用来保证哈希表的线程安全
