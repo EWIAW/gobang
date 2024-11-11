@@ -216,9 +216,9 @@ private:
     match_queue<uint64_t> _queue_bronze; // 青铜匹配队列
     match_queue<uint64_t> _queue_sliver; // 白银匹配队列
     match_queue<uint64_t> _queue_gold;   // 黄金匹配队列
-    std::thread _thread_bronze;          // 处理青铜队列的匹配
-    std::thread _thread_sliver;          // 处理白银队列的匹配
-    std::thread _thread_gold;            // 处理黄金队列的匹配
+    std::thread _thread_bronze;          // 处理青铜队列的匹配的线程
+    std::thread _thread_sliver;          // 处理白银队列的匹配的线程
+    std::thread _thread_gold;            // 处理黄金队列的匹配的线程
     online_manager *_online_manager;
     room_manager *_room_manager;
     user_table *_user_table;
