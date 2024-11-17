@@ -33,7 +33,7 @@ public:
     void wait()
     {
         std::unique_lock<std::mutex> lock(_mutex);
-        _cond.wait();
+        _cond.wait(lock);
         return;
     }
 
@@ -79,9 +79,9 @@ class matcher
 public:
     matcher(online_manager *online_manager, room_manager *room_manager, user_table *user_table)
         : _online_manager(online_manager), _room_manager(room_manager), _user_table(user_table),
-          _thread_bronze(std::thread(handler_bronze_match, this)),
-          _thread_sliver(std::thread(handler_sliver_match, this)),
-          _thread_gold(std::thread(handler_gold_match, this))
+          _thread_bronze(std::thread(&matcher::handler_bronze_match, this)),
+          _thread_sliver(std::thread(&matcher::handler_sliver_match, this)),
+          _thread_gold(std::thread(&matcher::handler_gold_match, this))
     {
         DLOG("游戏匹配模块处理完毕!!!");
     }

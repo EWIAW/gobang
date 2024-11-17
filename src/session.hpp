@@ -136,14 +136,14 @@ public:
     }
 
     // 销毁session
-    void remove_session(const uint64_t &sid)
+    void remove_session(uint64_t &sid)
     {
         std::unique_lock<std::mutex> lock(_mutex);
         _session.erase(sid);
     }
 
     // 设置session生命周期
-    void set_session_expire_time(const uint64_t &sid, const int ms)
+    void set_session_expire_time(uint64_t &sid, const int ms)
     {
         // 先查找要设置的session是否存在
         session_ptr sp = get_session_by_id(sid);
@@ -163,22 +163,22 @@ public:
         }
         else if (tp.get() == nullptr && ms != SESSION_FOREVER)
         {
-            server_t::timer_ptr tmp_tp = _server->set_timer(ms, std::bind(remove_session, this, sid));
+            server_t::timer_ptr tmp_tp = _server->set_timer(ms, std::bind(&session_manager::remove_session, this, sid));
             sp->set_timer(tmp_tp);
         }
         else if (tp.get() != nullptr && ms == SESSION_FOREVER)
         {
             tp->cancel(); // 取消定时器，但是取消定时器后，所定时的任务就会被执行
             sp->set_timer(server_t::timer_ptr());
-            _server->set_timer(0, std::bind(append_session, this, sp));
+            _server->set_timer(0, std::bind(&session_manager::append_session, this, sp));
         }
         else if (tp.get() != nullptr && ms != SESSION_FOREVER)
         {
             tp->cancel();
             sp->set_timer(server_t::timer_ptr());
-            _server->set_timer(0, std::bind(append_session, this, sp));
+            _server->set_timer(0, std::bind(&session_manager::append_session, this, sp));
             // 重新设置时间
-            server_t::timer_ptr tmp_tp = _server->set_timer(ms, std::bind(remove_session, this, sid));
+            server_t::timer_ptr tmp_tp = _server->set_timer(ms, std::bind(&session_manager::remove_session, this, sid));
             sp->set_timer(tmp_tp);
         }
         return;

@@ -4,6 +4,12 @@
 #include "db.hpp"
 #include "online.hpp"
 #include "room.hpp"
+#include "server.hpp"
+
+#define HOST "127.0.0.1"
+#define USERNAME "root"
+#define PASSWORD "Zrb20031017@"
+#define DBNAME "gobang"
 
 // 测试日志系统
 void test_log()
@@ -70,14 +76,15 @@ void test_read()
     std::cout << body << std::endl;
 }
 
-
 int main()
 {
     // test_log();
     // test_mysql();
     // test_json();
     // test_split();
-    test_read();
+    // test_read();
+    gobang_server _server(HOST, USERNAME, PASSWORD, DBNAME);
+    _server.start(3489);
 
     return 0;
 }

@@ -39,6 +39,15 @@ public:
         _server.set_message_handler(std::bind(handler_message, this, std::placeholders::_1, std::placeholders::_2));
     }
 
+    // 启动服务器
+    void start(uint16_t port)
+    {
+        _server.listen(port);
+        _server.start_accept();
+        _server.run();
+    }
+
+private:
     // 返回响应信息
     void http_response(server_t::connection_ptr &conn, websocketpp::http::status_code::value code, const bool &result, const std::string &message)
     {
@@ -245,6 +254,45 @@ public:
 
     void open_game_room(server_t::connection_ptr &conn)
     {
+        Json::Value response;
+        // 1.获取session信息
+        session_ptr ssp = get_session_by_cookie(conn);
+        if (ssp.get() == nullptr)
+        {
+            return;
+        }
+
+        // 2.判断当前用户是否重复登录
+        if (_online_manager.is_in_game_hall(ssp->get_user_id()) || _online_manager.is_in_game_room(ssp->get_user_id()))
+        {
+            response["optype"] = "room_ready";
+            response["result"] = false;
+            response["reason"] = "重复登录";
+            return server_response(conn, response);
+        }
+
+        // 3.判断有没有为该用户创建房间
+        room_ptr rm = _room_manager.get_room_by_user_id(ssp->get_user_id());
+        if (rm.get() == nullptr)
+        {
+            response["optype"] = "room_ready";
+            response["result"] = false;
+            response["reason"] = "没有找到房间信息";
+            return server_response(conn, response);
+        }
+
+        // 4.将玩家添加进房间
+        _online_manager.login_game_room(ssp->get_user_id(), conn);
+
+        // 5.设置session时间为永久
+        _session_manager.set_session_expire_time(ssp->get_user_id(), SESSION_FOREVER);
+        response["optype"] = "room_ready";
+        response["result"] = true;
+        response["room_id"] = (Json::UInt64)rm->get_room_id();
+        response["uid"] = (Json::UInt64)ssp->get_user_id();
+        response["white_id"] = (Json::UInt64)rm->get_white_id();
+        response["black_id"] = (Json::UInt64)rm->get_black_id();
+        return server_response(conn, response);
     }
 
     /////
@@ -264,19 +312,144 @@ public:
         }
     }
 
+    void close_game_hall(server_t::connection_ptr &conn)
+    {
+        // 将用户从大厅中移除
+        session_ptr ssp = get_session_by_cookie(conn);
+        if (ssp.get() == nullptr)
+        {
+            return;
+        }
+        _online_manager.exit_game_hall(ssp->get_user_id());
+        // 设置session时间
+        _session_manager.set_session_expire_time(ssp->get_user_id(), SESSION_TIMEOUT);
+    }
+
+    void close_game_room(server_t::connection_ptr &conn)
+    {
+        session_ptr ssp = get_session_by_cookie(conn);
+        if (ssp.get() == nullptr)
+        {
+            return;
+        }
+        _online_manager.exit_game_room(ssp->get_user_id());
+        _session_manager.set_session_expire_time(ssp->get_user_id(), SESSION_TIMEOUT);
+        _room_manager.remove_user(ssp->get_user_id());
+    }
+
     /////
     // close连接关闭处理回调函数
     void handler_close(websocketpp::connection_hdl hdl)
     {
+        server_t::connection_ptr conn = _server.get_con_from_hdl(hdl);
+        websocketpp::http::parser::request request = conn->get_request();
+        std::string url = request.get_uri();
+        if (url == "/hall")
+        {
+            return close_game_hall(conn);
+        }
+        else if (url == "/room")
+        {
+            return close_game_room(conn);
+        }
+    }
+
+    void message_game_hall(server_t::connection_ptr &conn, server_t::message_ptr &message)
+    {
+        Json::Value response; // 需要返回的json数据
+        std::string resquest_body;
+        // 1.身份验证，判断当前客户端是那个玩家
+        session_ptr ssp = get_session_by_cookie(conn);
+        if (ssp.get() == nullptr)
+        {
+            return;
+        }
+        // 2.获取请求信息
+        resquest_body = message->get_payload();
+        bool ret = json_util::unserialize(resquest_body, response);
+        if (ret == false)
+        {
+            response["result"] = false;
+            response["reason"] = "反序列化失败";
+            return server_response(conn, response);
+        }
+        if (!response["optype"].isNull() && response["optype"].asCString() == "match_start")
+        {
+            // 开始匹配对战
+            _matcher.add(ssp->get_user_id());
+            response["optype"] = "match_start";
+            response["result"] = true;
+            return server_response(conn, response);
+        }
+        else if (!response["optype"].isNull() && response["optype"].asCString() == "match_stop")
+        {
+            // 停止匹配对战
+            _matcher.del(ssp->get_user_id());
+            response["optype"] = "match_stop";
+            response["result"] = true;
+            return server_response(conn, response);
+        }
+        response["optype"] = "unknow";
+        response["result"] = false;
+        response["reason"] = "未知类型";
+        return server_response(conn, response);
+    }
+
+    void message_game_room(server_t::connection_ptr &conn, server_t::message_ptr &message)
+    {
+        Json::Value response;
+
+        // 1.检查身份信息
+        session_ptr ssp = get_session_by_cookie(conn);
+        if (ssp.get() == nullptr)
+        {
+            DLOG("房间-没有找到会话信息");
+            return;
+        }
+        // 获取客户端房间信息
+        room_ptr rp = _room_manager.get_room_by_user_id(ssp->get_user_id());
+        if (rp.get() == nullptr)
+        {
+            response["optype"] = "unknow";
+            response["result"] = false;
+            response["reason"] = "没有找到房间信息";
+            DLOG("没有找到玩家房间信息");
+            return server_response(conn, response);
+        }
+        // 获取消息内容并进行反序列化
+        std::string resquest_body;
+        resquest_body = message->get_payload();
+        bool ret = json_util::unserialize(resquest_body, response);
+        if (ret == false)
+        {
+            response["optype"] = "unknow";
+            response["result"] = false;
+            response["reason"] = "反序列化信息失败";
+            DLOG("房间反序列化信息失败");
+            return server_response(conn, response);
+        }
+        // 处理房间动作
+        DLOG("房间-动作");
+        rp->handle_request(resquest_body);
     }
 
     /////
     // message消息处理回调函数
     void handler_message(websocketpp::connection_hdl hdl, server_t::message_ptr message)
     {
+        server_t::connection_ptr conn = _server.get_con_from_hdl(hdl);
+        websocketpp::http::parser::request request = conn->get_request();
+        std::string url = request.get_uri();
+        if (url == "/hall")
+        {
+            return message_game_hall(conn, message);
+        }
+        else if (url == "/room")
+        {
+            return message_game_room(conn, message);
+        }
     }
 
-private:
     // 从cookie信息中提取session的id
     bool get_cookie_val(const std::string &cookie_str, const std::string &key, std::string &val)
     {
