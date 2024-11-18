@@ -33,10 +33,10 @@ public:
         _server.init_asio();
         _server.set_reuse_addr(true); // 确保服务器重启时，能快速占用端口号
         // 初始化四个处理回调函数
-        _server.set_http_handler(std::bind(handler_http, this, std::placeholders::_1));
-        _server.set_open_handler(std::bind(handler_open, this, std::placeholders::_1));
-        _server.set_close_handler(std::bind(handler_close, this, std::placeholders::_1));
-        _server.set_message_handler(std::bind(handler_message, this, std::placeholders::_1, std::placeholders::_2));
+        _server.set_http_handler(std::bind(&gobang_server::handler_http, this, std::placeholders::_1));
+        _server.set_open_handler(std::bind(&gobang_server::handler_open, this, std::placeholders::_1));
+        _server.set_close_handler(std::bind(&gobang_server::handler_close, this, std::placeholders::_1));
+        _server.set_message_handler(std::bind(&gobang_server::handler_message, this, std::placeholders::_1, std::placeholders::_2));
     }
 
     // 启动服务器
@@ -81,7 +81,7 @@ private:
             return http_response(conn, websocketpp::http::status_code::bad_request, false, "请输入用户名和密码");
         }
         // 3.判断用户存不存在数据库中
-        bool ret = _user_table.login(login_information);
+        ret = _user_table.login(login_information);
         if (ret == false)
         {
             DLOG("用户名密码错误");

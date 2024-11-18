@@ -49,7 +49,7 @@ public:
         bool ret = mysql_util::mysql_exec(_mysql, sql);
         if (ret == false)
         {
-            DLOG("insert user failed : %s", sql);
+            DLOG("insert user failed : %s , reason : %s", sql,mysql_error(_mysql));
             return false;
         }
         DLOG("insert user success : %s", sql);

@@ -104,7 +104,7 @@ public:
     }
 
     // 创建session
-    session_ptr create_session(const uint64_t &uid, const session_status &status)
+    session_ptr create_session(uint64_t &uid,const session_status &status)
     {
         std::unique_lock<std::mutex> lock(_mutex);
         session_ptr sp(new session(_next_ssid));
@@ -143,7 +143,7 @@ public:
     }
 
     // 设置session生命周期
-    void set_session_expire_time(uint64_t &sid, const int ms)
+    void set_session_expire_time(uint64_t sid, const int ms)
     {
         // 先查找要设置的session是否存在
         session_ptr sp = get_session_by_id(sid);
