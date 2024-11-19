@@ -83,7 +83,7 @@ private:
     server_t::timer_ptr _tp; // 定时器
 };
 
-#define SESSION_TIMEOUT 30000
+#define SESSION_TIMEOUT 300000
 #define SESSION_FOREVER -1
 
 typedef std::shared_ptr<session> session_ptr;

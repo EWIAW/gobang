@@ -50,7 +50,7 @@
         }
         function get_user_info() {
             $.ajax({
-                url: "/info",
+                url: "/information",
                 type: "get",
                 success: function(res) {
                     var info_html = "<p>" + "用户：" + res.username + " 积分：" + res.score + 

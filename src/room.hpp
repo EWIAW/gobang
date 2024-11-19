@@ -88,11 +88,18 @@ public:
     // 处理下棋动作
     Json::Value handle_chess(const Json::Value &request)
     {
-        Json::Value response;                    // 响应处理
-        int chess_row = request["row"].asUInt(); // 下棋的位置
-        int chess_col = request["col"].asUInt();
+        DLOG("进入handler_chess");
+        Json::Value response = request; // 响应处理
+
+        std::string tmp;
+        json_util::serialize(request, tmp);
+        std::cout << tmp << std::endl;
+
+        int chess_row = request["row"].asInt(); // 下棋的位置
+        int chess_col = request["col"].asInt();
         uint64_t play_chess_id = request["uid"].asUInt64(); // 下棋用户的id
         // 1.在更新下棋位置的信息时，先判断对方有没有掉线，如果掉线了，直接获胜
+        DLOG("一");
         if (_online_user->is_in_game_room(_white_id) == false)
         {
             response["result"] = true;
@@ -100,6 +107,7 @@ public:
             response["winner"] = (Json::UInt64)_black_id;
             return response;
         }
+        DLOG("二");
         if (_online_user->is_in_game_room(_black_id) == false)
         {
             response["result"] = true;
@@ -108,12 +116,14 @@ public:
             return response;
         }
         // 2.进行下棋
+        DLOG("三");
         if (_board[chess_row][chess_col] != 0) // 说明下棋的位置已经有棋子
         {
             response["result"] = false;
             response["reason"] = "该位置已经有棋子，请重新选择位置下棋！！！";
             return response;
         }
+        DLOG("四");
         // 走到这里，所以下棋的位置是合理的，更新棋盘信息
         int chess_color = 0; // 记录下棋棋子的颜色
         if (play_chess_id == _white_id)
@@ -126,6 +136,7 @@ public:
         }
         _board[chess_row][chess_col] = chess_color;
         // 3.下棋完成后判断是否获胜
+        DLOG("五");
         uint64_t winner_id = check_win(chess_row, chess_col, chess_color);
         if (winner_id != 0)
         {
@@ -133,14 +144,15 @@ public:
         }
         response["result"] = true;
         response["winner"] = (Json::UInt64)winner_id;
+        DLOG("退出handler_chess函数");
         return response;
     }
 
     // 处理聊天动作
     Json::Value handle_chat(const Json::Value &resquest)
     {
-        Json::Value response;
-        std::string msg = resquest["message"].asCString();
+        Json::Value response = resquest;
+        std::string msg = resquest["message"].asString();
         // 判断信息中是否存在敏感词
         if (msg.find("垃圾") != std::string::npos)
         {
@@ -193,17 +205,20 @@ public:
     {
         Json::Value response;
         // 1.判断房间号是否匹配
-        if (request["room_id"] != (Json::UInt64)_room_id)
+        DLOG("1");
+        if (request["room_id"].asUInt64() != (Json::UInt64)_room_id)
         {
-            response["optype"] = request["optype"].asCString();
+            response["optype"] = request["optype"].asString();
             response["result"] = false;
             response["reason"] = "房间号不匹配！！！";
             broadcast(response);
             return;
         }
         // 2.开始处理各种请求
-        if (request["optype"].asCString() == "put_chess")
+        DLOG("2");
+        if (request["optype"].asString() == "put_chess")
         {
+            DLOG("???");
             response = handle_chess(request);
             if (response["winner"].asInt64() != 0) // 说明有人获胜了
             {
@@ -222,16 +237,17 @@ public:
                 _room_status = GAME_OVER;
             }
         }
-        else if (request["optype"].asCString() == "chat")
+        else if (request["optype"].asString() == "chat")
         {
             response = handle_chat(request);
         }
         else
         {
-            response["optype"] = request["optype"].asCString();
+            response["optype"] = request["optype"].asString();
             response["result"] = false;
             response["reason"] = "未知类型";
         }
+        DLOG("3");
         std::string body;
         json_util::serialize(response, body);
         DLOG("房间-广播动作：%s", body.c_str());
@@ -272,6 +288,7 @@ private:
     // row和col为下棋的位置，offset为偏移量，依次判断横竖斜四个方向是否五星连珠
     bool five(const int row, const int col, const int offset_row, const int offset_col, const int chess_color)
     {
+        DLOG("进入five函数");
         int count = 1;
         int tmp_row = row;
         int tmp_col = col;
@@ -291,23 +308,27 @@ private:
                 break;
             }
         }
-
+        DLOG("count : %d", count);
         tmp_row = row;
         tmp_col = col;
         tmp_row -= offset_row;
         tmp_col -= offset_col;
+        DLOG("进入第二个while");
         while (tmp_row >= 0 && tmp_row < BOARD_ROW && tmp_col >= 0 && tmp_col < BOARD_COL)
         {
             if (_board[tmp_row][tmp_col] == chess_color)
             {
                 count++;
+                tmp_row -= offset_row;
+                tmp_col -= offset_col;
             }
             else
             {
                 break;
             }
         }
-
+        DLOG("count : %d", count);
+        DLOG("退出five函数");
         if (count == 5)
         {
             return true;
@@ -321,9 +342,10 @@ private:
     // 判断是否获胜，如果获胜了，返回获胜者的id
     uint64_t check_win(const int row, const int col, const int chess_color)
     {
+        DLOG("进入check_win函数");
         if (five(row, col, 1, 0, chess_color) ||
             five(row, col, 0, 1, chess_color) ||
-            five(row, col, 1, 1, chess_color) ||
+            five(row, col, -1, -1, chess_color) ||
             five(row, col, -1, 1, chess_color))
         {
             if (chess_color == WHITE_CHESS)
@@ -335,6 +357,7 @@ private:
                 return _black_id;
             }
         }
+        DLOG("退出check_win函数");
         return 0;
     }
 
@@ -370,6 +393,7 @@ public:
     // 创建房间，当两个用户匹配成功时，为他们创建房间
     room_ptr create_room(const uint64_t &id1, const uint64_t &id2)
     {
+        DLOG("进入create_room函数");
         // 在创建房间之前，先判断两个用户是否都还在大厅
         if (_online_user->is_in_game_hall(id1) == false)
         {
@@ -391,6 +415,7 @@ public:
         _users.insert(std::make_pair(id1, _next_room_id));
         _users.insert(std::make_pair(id2, _next_room_id));
         _next_room_id++;
+        DLOG("创建房间成功");
         return rp;
     }
 
