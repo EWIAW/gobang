@@ -8,6 +8,10 @@
 
 class online_manager
 {
+private:
+    std::mutex _mutex;                                                 // 定义互斥锁，保护对哈希表进行操作的时候是原子性的
+    std::unordered_map<uint64_t, server_t::connection_ptr> _hall_user; // 管理游戏大厅用户信息
+    std::unordered_map<uint64_t, server_t::connection_ptr> _game_user; // 管理游戏房间用户信息
 public:
     // 插入用户到游戏大厅
     void login_game_hall(const uint64_t &id, server_t::connection_ptr &con)
@@ -84,9 +88,4 @@ public:
         }
         return it->second;
     }
-
-private:
-    std::mutex _mutex;                                                 // 定义互斥锁，保护对哈希表进行操作的时候是原子性的
-    std::unordered_map<uint64_t, server_t::connection_ptr> _hall_user; // 管理游戏大厅用户信息
-    std::unordered_map<uint64_t, server_t::connection_ptr> _game_user; // 管理游戏房间用户信息
 };

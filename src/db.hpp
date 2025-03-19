@@ -12,6 +12,10 @@
 // 管理数据库user表类，通过这个类的实例化来管理我们的user表
 class user_table
 {
+private:
+    MYSQL *_mysql;     // mysql句柄
+    std::mutex _mutex; // 互斥锁，保证访问数据库安全
+
 public:
     // 构造函数，连接数据库
     user_table(const std::string &host,
@@ -42,21 +46,21 @@ public:
         }
 
 // 如果用户名和密码不为空，则进行插入数据
-#define INSERT_USER "insert into user values(null,'%s',password('%s'),1000,0,0);"
+#define INSERT_USER "insert into user values(null,'%s',SHA2('%s',512),1000,0,0);"
         char sql[4096] = {0}; // 要执行的sql语句
         sprintf(sql, INSERT_USER, user["username"].asCString(), user["password"].asCString());
 
         bool ret = mysql_util::mysql_exec(_mysql, sql);
         if (ret == false)
         {
-            DLOG("insert user failed : %s , reason : %s", sql,mysql_error(_mysql));
+            DLOG("insert user failed : %s , reason : %s", sql, mysql_error(_mysql));
             return false;
         }
         DLOG("insert user success : %s", sql);
         return true;
     }
 
-    // 登录验证，并返回用户具体信息
+    // 登录验证，并返回用户具体信息，通过username和password去获取用户的信息，并将这些信息添加到user json变量中
     bool login(Json::Value &user)
     {
         // 判断用户名和密码是否有空
@@ -67,7 +71,7 @@ public:
         }
 
 // 执行select搜索语句
-#define LOGIN_USER "select id,score,total_count,win_count from user where username='%s' and password=password('%s');"
+#define LOGIN_USER "select id,score,total_count,win_count from user where username='%s' and password=SHA2('%s',512);"
         char sql[4096] = {0};
         sprintf(sql, LOGIN_USER, user["username"].asCString(), user["password"].asCString());
 
@@ -91,7 +95,7 @@ public:
         }
         // 判断结果集数据是否为1
         int row_num = mysql_num_rows(res);
-        if (row_num != 1)
+        if (row_num != 1) // 说明数据库中，有两个相同的username和password
         {
             DLOG("This user information is not unique");
             return false;
@@ -103,7 +107,7 @@ public:
         user["score"] = (Json::UInt64)std::stol(row[1]);
         user["total_count"] = std::stoi(row[2]);
         user["win_count"] = std::stoi(row[3]);
-        mysql_free_result(res); // 是否结果集
+        mysql_free_result(res); // 释放结果集
         return true;
     }
 
@@ -230,8 +234,4 @@ public:
         DLOG("update lose user information success");
         return true;
     }
-
-private:
-    MYSQL *_mysql;     // mysql句柄
-    std::mutex _mutex; // 互斥锁，保证访问数据库安全
 };

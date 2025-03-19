@@ -18,7 +18,7 @@ typedef websocketpp::server<websocketpp::config::asio> server_t;
 class mysql_util
 {
 public:
-    // 数据库初始化和连接
+    // 数据库初始化 和 连接我们的online_gobang数据库，并返回mysql句柄
     static MYSQL *mysql_create(const std::string &host,
                                const std::string &user,
                                const std::string &password,
@@ -71,7 +71,6 @@ public:
         }
         // DLOG("mysql query success : %s", sql.c_str());
         // DLOG("mysql query success");
-
         return true;
     }
 
@@ -91,7 +90,7 @@ public:
 class json_util
 {
 public:
-    // 序列化   将结构化数据转换为字符串
+    // 序列化   将结构化JSON数据转换为字符串
     static bool serialize(const Json::Value &root, std::string &str)
     {
         Json::StreamWriterBuilder swb;
@@ -175,7 +174,7 @@ public:
         // 获取文件大小
         size_t fsize = 0;
         ifs.seekg(0, std::ios::end); // 将文件指针偏移到文件末尾
-        fsize = ifs.tellg();         // 获取文件指针的偏移量，即获取了文件的打开
+        fsize = ifs.tellg();         // 获取文件指针的偏移量，即获取了文件的大小
         ifs.seekg(0, std::ios::beg);
         body.resize(fsize);
 

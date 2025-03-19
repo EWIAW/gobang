@@ -8,8 +8,8 @@
 
 #define HOST "127.0.0.1"
 #define USERNAME "root"
-#define PASSWORD "Zrb20031017@"
-#define DBNAME "gobang"
+#define PASSWORD "Zrb20031017"
+#define DBNAME "online_gobang"
 
 // 测试日志系统
 void test_log()
@@ -23,7 +23,7 @@ void test_log()
 void test_mysql()
 {
     // 初始化和连接数据库，并设置编码集
-    MYSQL *mysql = mysql_util::mysql_create("localhost", "root", "Zrb20031017@", "test");
+    MYSQL *mysql = mysql_util::mysql_create("localhost", "root", "Zrb20031017", "test");
 
     // 执行MySQL语句
     bool ret = mysql_util::mysql_exec(mysql, "insert into student values('阮靖凯',36,'女')");
