@@ -16,6 +16,10 @@
 template <class T>
 class match_queue
 {
+private:
+    std::list<T> _queue; // 匹配队列
+    std::mutex _mutex;
+    std::condition_variable _cond; // 条件变量
 public:
     // 获取元素个数
     size_t size()
@@ -52,7 +56,7 @@ public:
     // 出队列
     bool pop(T &data)
     {
-        DLOG("进入pop函数");
+        // DLOG("进入pop函数");
         std::unique_lock<std::mutex> lock(_mutex);
         if (_queue.empty() == true)
         {
@@ -68,17 +72,24 @@ public:
     {
         std::unique_lock<std::mutex> lock(_mutex);
         _queue.remove(data);
+        return;
     }
-
-private:
-    std::list<T> _queue; // 匹配队列
-    std::mutex _mutex;
-    std::condition_variable _cond; // 条件变量
 };
 
 // 管理匹配队列
 class matcher
 {
+private:
+    match_queue<uint64_t> _queue_bronze; // 青铜匹配队列
+    match_queue<uint64_t> _queue_sliver; // 白银匹配队列
+    match_queue<uint64_t> _queue_gold;   // 黄金匹配队列
+    std::thread _thread_bronze;          // 处理青铜队列的匹配的线程
+    std::thread _thread_sliver;          // 处理白银队列的匹配的线程
+    std::thread _thread_gold;            // 处理黄金队列的匹配的线程
+    online_manager *_online_manager;
+    room_manager *_room_manager;
+    user_table *_user_table;
+
 public:
     matcher(online_manager *online_manager, room_manager *room_manager, user_table *user_table)
         : _online_manager(online_manager), _room_manager(room_manager), _user_table(user_table),
@@ -99,67 +110,68 @@ public:
             {
                 queue.wait();
             }
-            DLOG("人数大于2个，开始匹配");
-            DLOG("!!!!!!!!!!");
+            // DLOG("人数大于2个，开始匹配");
+            // DLOG("!!!!!!!!!!");
             // 走到这里说明匹配队列中的人数 大于2
             // 从匹配队列中取出前两个玩家进行创建房间对战
             uint64_t uid1, uid2;
-            DLOG("!!!!!");
+            // DLOG("!!!!!");
             bool ret = queue.pop(uid1);
-            DLOG("pop1");
+            // DLOG("pop1");
             if (ret == false) // 即使走到这里，匹配队列中的人数也有可能不足2人，因为如果有人进行匹配后，又取消了就有可能出现这种情况
             {
-                DLOG("1");
+                // DLOG("1");
                 continue;
             }
             ret = queue.pop(uid2);
-            DLOG("pop2");
+            // DLOG("pop2");
             if (ret == false)
             {
-                DLOG("2");
+                // DLOG("2");
                 // 走到这里说明有一个人匹配了成功，可对方却取消匹配了，所以要将uid1重新加入匹配队列
                 add(uid1);
                 continue;
             }
             // 走到这里说明，两人匹配成功，但是匹配成功后，要判断两个人是否都还在游戏大厅
-            DLOG("conn1");
+            // DLOG("conn1");
             server_t::connection_ptr conn1 = _online_manager->get_con_from_hall(uid1);
             if (conn1.get() == nullptr) // uid1不在游戏大厅
             {
-                DLOG("3");
+                // DLOG("3");
                 add(uid2);
                 continue;
             }
-            DLOG("conn2");
+            // DLOG("conn2");
             server_t::connection_ptr conn2 = _online_manager->get_con_from_hall(uid2);
             if (conn2.get() == nullptr) // uid2不在游戏大厅
             {
-                DLOG("4");
+                // DLOG("4");
                 add(uid1);
                 continue;
             }
             // 走到这里说明，两个人终于匹配成功，为他们创建房间
-            DLOG("create_room");
+            // DLOG("create_room");
             room_ptr rp = _room_manager->create_room(uid1, uid2);
             if (rp.get() == nullptr)
             {
-                DLOG("5");
+                // DLOG("5");
                 add(uid1);
                 add(uid2);
                 continue;
             }
-            DLOG("!");
+            // DLOG("!");
             // 对两个玩家进行响应
             Json::Value response;
             response["optype"] = "match_success";
             response["result"] = true;
             std::string body;
-            DLOG("!!!!!!!!!!");
+            // DLOG("!!!!!!!!!!");
             json_util::serialize(response, body);
-            DLOG("handler_match : %s", body.c_str());
+            // DLOG("handler_match : %s", body.c_str());
             conn1->send(body);
             conn2->send(body);
         }
+        return;
     }
 
     // 处理青铜匹配队列
@@ -184,7 +196,7 @@ public:
     bool add(const uint64_t &uid)
     {
         // 根据玩家的分数，把不同的玩家加入到不同的匹配队列
-        Json::Value message;
+        Json::Value message; // 通过用户的id可以将用户的信息传到message中
         bool ret = _user_table->select_by_id(uid, message);
         if (ret == false)
         {
@@ -232,15 +244,4 @@ public:
         }
         return true;
     }
-
-private:
-    match_queue<uint64_t> _queue_bronze; // 青铜匹配队列
-    match_queue<uint64_t> _queue_sliver; // 白银匹配队列
-    match_queue<uint64_t> _queue_gold;   // 黄金匹配队列
-    std::thread _thread_bronze;          // 处理青铜队列的匹配的线程
-    std::thread _thread_sliver;          // 处理白银队列的匹配的线程
-    std::thread _thread_gold;            // 处理黄金队列的匹配的线程
-    online_manager *_online_manager;
-    room_manager *_room_manager;
-    user_table *_user_table;
 };

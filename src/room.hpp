@@ -24,9 +24,19 @@ enum room_status
     GAME_OVER
 };
 
-// 房间类
+// 房间类，用来维护两个用户匹配成功后，一个小范围的空间
 class room
 {
+private:
+    int _play_count;                      // 玩家数量
+    uint64_t _room_id;                    // 房间id
+    uint64_t _white_id;                   // 白方id
+    uint64_t _black_id;                   // 黑方id
+    room_status _room_status;             // 房间状态
+    user_table *_user_table;              // user表管理类
+    online_manager *_online_user;         // 用户在线信息类
+    std::vector<std::vector<int>> _board; // 棋盘
+
 public:
     room(const uint64_t &room_id, user_table *user_table, online_manager *online_user)
         : _play_count(0), _room_id(room_id),
@@ -85,21 +95,29 @@ public:
         return _black_id;
     }
 
+    // {
+    //     "col" : 6,
+    //     "optype" : "put_chess",
+    //     "room_id" : 1,
+    //     "row" : 5,
+    //     "uid" : 2
+    // }
     // 处理下棋动作
-    Json::Value handle_chess(const Json::Value &request)
+    Json::Value handle_chess(const Json::Value &request) // 这个json的内容如上面所示
     {
-        DLOG("进入handler_chess");
+        // DLOG("进入handler_chess");
         Json::Value response = request; // 响应处理
 
-        std::string tmp;
-        json_util::serialize(request, tmp);
-        std::cout << tmp << std::endl;
+        // 下面仅做一个测试，看看request请求是怎样的
+        // std::string tmp;
+        // json_util::serialize(request, tmp);
+        // std::cout << tmp << std::endl;
 
         int chess_row = request["row"].asInt(); // 下棋的位置
         int chess_col = request["col"].asInt();
         uint64_t play_chess_id = request["uid"].asUInt64(); // 下棋用户的id
         // 1.在更新下棋位置的信息时，先判断对方有没有掉线，如果掉线了，直接获胜
-        DLOG("一");
+        // DLOG("一");
         if (_online_user->is_in_game_room(_white_id) == false)
         {
             response["result"] = true;
@@ -107,7 +125,7 @@ public:
             response["winner"] = (Json::UInt64)_black_id;
             return response;
         }
-        DLOG("二");
+        // DLOG("二");
         if (_online_user->is_in_game_room(_black_id) == false)
         {
             response["result"] = true;
@@ -116,14 +134,14 @@ public:
             return response;
         }
         // 2.进行下棋
-        DLOG("三");
+        // DLOG("三");
         if (_board[chess_row][chess_col] != 0) // 说明下棋的位置已经有棋子
         {
             response["result"] = false;
             response["reason"] = "该位置已经有棋子，请重新选择位置下棋！！！";
             return response;
         }
-        DLOG("四");
+        // DLOG("四");
         // 走到这里，所以下棋的位置是合理的，更新棋盘信息
         int chess_color = 0; // 记录下棋棋子的颜色
         if (play_chess_id == _white_id)
@@ -136,7 +154,7 @@ public:
         }
         _board[chess_row][chess_col] = chess_color;
         // 3.下棋完成后判断是否获胜
-        DLOG("五");
+        // DLOG("五");
         uint64_t winner_id = check_win(chess_row, chess_col, chess_color);
         if (winner_id != 0)
         {
@@ -144,7 +162,7 @@ public:
         }
         response["result"] = true;
         response["winner"] = (Json::UInt64)winner_id;
-        DLOG("退出handler_chess函数");
+        // DLOG("退出handler_chess函数");
         return response;
     }
 
@@ -157,7 +175,7 @@ public:
         if (msg.find("垃圾") != std::string::npos)
         {
             response["result"] = false;
-            response["reason"] = "该信息中包含敏感词汇，无法发送";
+            response["reason"] = "该信息中包含敏感词汇，无法发送！！！";
             return response;
         }
         // 广播消息
@@ -205,7 +223,7 @@ public:
     {
         Json::Value response;
         // 1.判断房间号是否匹配
-        DLOG("1");
+        // DLOG("1");
         if (request["room_id"].asUInt64() != (Json::UInt64)_room_id)
         {
             response["optype"] = request["optype"].asString();
@@ -215,10 +233,10 @@ public:
             return;
         }
         // 2.开始处理各种请求
-        DLOG("2");
+        // DLOG("2");
         if (request["optype"].asString() == "put_chess")
         {
-            DLOG("???");
+            // DLOG("???");
             response = handle_chess(request);
             if (response["winner"].asInt64() != 0) // 说明有人获胜了
             {
@@ -247,7 +265,7 @@ public:
             response["result"] = false;
             response["reason"] = "未知类型";
         }
-        DLOG("3");
+        // DLOG("3");
         std::string body;
         json_util::serialize(response, body);
         DLOG("房间-广播动作：%s", body.c_str());
@@ -288,7 +306,7 @@ private:
     // row和col为下棋的位置，offset为偏移量，依次判断横竖斜四个方向是否五星连珠
     bool five(const int row, const int col, const int offset_row, const int offset_col, const int chess_color)
     {
-        DLOG("进入five函数");
+        // DLOG("进入five函数");
         int count = 1;
         int tmp_row = row;
         int tmp_col = col;
@@ -308,12 +326,12 @@ private:
                 break;
             }
         }
-        DLOG("count : %d", count);
+        // DLOG("count : %d", count);
         tmp_row = row;
         tmp_col = col;
         tmp_row -= offset_row;
         tmp_col -= offset_col;
-        DLOG("进入第二个while");
+        // DLOG("进入第二个while");
         while (tmp_row >= 0 && tmp_row < BOARD_ROW && tmp_col >= 0 && tmp_col < BOARD_COL)
         {
             if (_board[tmp_row][tmp_col] == chess_color)
@@ -327,8 +345,8 @@ private:
                 break;
             }
         }
-        DLOG("count : %d", count);
-        DLOG("退出five函数");
+        // DLOG("count : %d", count);
+        // DLOG("退出five函数");
         if (count == 5)
         {
             return true;
@@ -342,7 +360,7 @@ private:
     // 判断是否获胜，如果获胜了，返回获胜者的id
     uint64_t check_win(const int row, const int col, const int chess_color)
     {
-        DLOG("进入check_win函数");
+        // DLOG("进入check_win函数");
         if (five(row, col, 1, 0, chess_color) ||
             five(row, col, 0, 1, chess_color) ||
             five(row, col, -1, -1, chess_color) ||
@@ -357,27 +375,25 @@ private:
                 return _black_id;
             }
         }
-        DLOG("退出check_win函数");
+        // DLOG("退出check_win函数");
         return 0;
     }
-
-private:
-    int _play_count;                      // 玩家数量
-    uint64_t _room_id;                    // 房间id
-    uint64_t _white_id;                   // 白方id
-    uint64_t _black_id;                   // 黑方id
-    room_status _room_status;             // 房间状态
-    user_table *_user_table;              // user表管理类
-    online_manager *_online_user;         // 用户在线信息类
-    std::vector<std::vector<int>> _board; // 棋盘
 };
 
-typedef std::shared_ptr<room> room_ptr;
-// using room_ptr = std::shared_ptr<room>;
+// typedef std::shared_ptr<room> room_ptr;
+using room_ptr = std::shared_ptr<room>;
 
 // 房间管理类
 class room_manager
 {
+private:
+    uint64_t _next_room_id; // 给房间id进行编排序号
+    std::mutex _mutex;      // 互斥锁，用来保证哈希表的线程安全
+    user_table *_user_tb;
+    online_manager *_online_user;
+    std::unordered_map<uint64_t, room_ptr> _rooms; // 用来管理通过房间号来找到房间对象
+    std::unordered_map<uint64_t, uint64_t> _users; // 用来管理通过用户id找到房间id
+
 public:
     room_manager(user_table *user_tb, online_manager *_online_user)
         : _next_room_id(1), _user_tb(user_tb), _online_user(_online_user)
@@ -393,7 +409,7 @@ public:
     // 创建房间，当两个用户匹配成功时，为他们创建房间
     room_ptr create_room(const uint64_t &id1, const uint64_t &id2)
     {
-        DLOG("进入create_room函数");
+        // DLOG("进入create_room函数");
         // 在创建房间之前，先判断两个用户是否都还在大厅
         if (_online_user->is_in_game_hall(id1) == false)
         {
@@ -415,7 +431,7 @@ public:
         _users.insert(std::make_pair(id1, _next_room_id));
         _users.insert(std::make_pair(id2, _next_room_id));
         _next_room_id++;
-        DLOG("创建房间成功");
+        // DLOG("创建房间成功");
         return rp;
     }
 
@@ -483,12 +499,4 @@ public:
         }
         return;
     }
-
-private:
-    uint64_t _next_room_id; // 给房间id进行编排序号
-    std::mutex _mutex;      // 互斥锁，用来保证哈希表的线程安全
-    user_table *_user_tb;
-    online_manager *_online_user;
-    std::unordered_map<uint64_t, room_ptr> _rooms; // 用来管理通过房间号来找到房间对象
-    std::unordered_map<uint64_t, uint64_t> _users; // 用来管理通过用户id找到房间id
 };

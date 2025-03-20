@@ -15,6 +15,14 @@
 
 class gobang_server
 {
+private:
+    server_t _server;                 // 服务器类
+    std::string _wwwroot;             // web网页资源根目录
+    user_table _user_table;           // 数据库用户管理类
+    online_manager _online_manager;   // 在线用户管理类
+    room_manager _room_manager;       // 房间管理类
+    session_manager _session_manager; // session管理类
+    matcher _matcher;                 // 匹配队列管理类
 public:
     gobang_server(const std::string &host,
                   const std::string &username,
@@ -51,8 +59,8 @@ private:
     // 返回响应信息
     void http_response(server_t::connection_ptr &conn, websocketpp::http::status_code::value code, const bool &result, const std::string &message)
     {
-        DLOG("----------------------------------------------------------------------------------------------------");
-        DLOG("进入http_response函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("进入http_response函数");
         Json::Value http_response;
         http_response["result"] = result;
         http_response["resson"] = message;
@@ -61,16 +69,16 @@ private:
         conn->set_status(code);
         conn->set_body(body);
         conn->append_header("Content-Type", "application/json");
-        DLOG("退出http_response函数");
-        DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("退出http_response函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
         return;
     }
 
     // 进行登录
     void login(server_t::connection_ptr &conn)
     {
-        DLOG("----------------------------------------------------------------------------------------------------");
-        DLOG("进入login函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("进入login函数");
         std::string request_json = conn->get_request_body(); // 获取请求的body内容，即登录的账号和密码
         Json::Value login_information;
         bool ret = json_util::unserialize(request_json, login_information);
@@ -105,16 +113,16 @@ private:
         // 5.设置响应头部
         std::string cooked_ssid = "SSID=" + std::to_string(ssp->get_sesssion_id());
         conn->append_header("Set-Cookie", cooked_ssid);
-        DLOG("退出login函数");
-        DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("退出login函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
         return http_response(conn, websocketpp::http::status_code::ok, true, "登录成功");
     }
 
     // 进行注册
     void reg(server_t::connection_ptr &conn)
     {
-        DLOG("----------------------------------------------------------------------------------------------------");
-        DLOG("进入reg函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("进入reg函数");
         std::string body = conn->get_request_body();
         Json::Value reg_response;
 
@@ -140,16 +148,16 @@ private:
             DLOG("插入新用户失败");
             return http_response(conn, websocketpp::http::status_code::internal_server_error, false, "用户名已经存在");
         }
-        DLOG("退出reg函数");
-        DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("退出reg函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
         return http_response(conn, websocketpp::http::status_code::ok, true, "注册成功");
     }
 
     // 通过cookie和session来获取用户的信息，例如用户的分数和对局数等等
     void information(server_t::connection_ptr &conn)
     {
-        DLOG("----------------------------------------------------------------------------------------------------");
-        DLOG("进入information函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("进入information函数");
         // 1.获取cookie信息
         std::string cookie_str = conn->get_request_header("Cookie");
         if (cookie_str.empty() == true)
@@ -189,8 +197,8 @@ private:
         conn->set_status(websocketpp::http::status_code::ok);
         // 5.刷新session过期时间
         _session_manager.set_session_expire_time(ssp->get_sesssion_id(), SESSION_TIMEOUT);
-        DLOG("退出information函数");
-        DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("退出information函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
         return;
     }
 
@@ -222,6 +230,9 @@ private:
         // DLOG("----------------------------------------------------------------------------------------------------");
     }
 
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // http请求处理回调函数
     void handler_http(websocketpp::connection_hdl hdl)
     {
@@ -249,8 +260,8 @@ private:
 
     void open_game_hall(server_t::connection_ptr &conn)
     {
-        DLOG("----------------------------------------------------------------------------------------------------");
-        DLOG("进入open_game_hall函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("进入open_game_hall函数");
         Json::Value response;
         session_ptr ssp = get_session_by_cookie(conn);
         if (ssp.get() == nullptr)
@@ -272,15 +283,15 @@ private:
         server_response(conn, response);
         // 设置session为永久存在
         _session_manager.set_session_expire_time(ssp->get_user_id(), SESSION_TIMEOUT);
-        DLOG("退出open_game_hall函数");
-        DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("退出open_game_hall函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
         return;
     }
 
     void open_game_room(server_t::connection_ptr &conn)
     {
-        DLOG("----------------------------------------------------------------------------------------------------");
-        DLOG("进入open_game_room函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("进入open_game_room函数");
         Json::Value response;
         // 1.获取session信息
         session_ptr ssp = get_session_by_cookie(conn);
@@ -319,12 +330,14 @@ private:
         response["uid"] = (Json::UInt64)ssp->get_user_id();
         response["white_id"] = (Json::UInt64)rm->get_white_id();
         response["black_id"] = (Json::UInt64)rm->get_black_id();
-        DLOG("退出open_game_room函数");
-        DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("退出open_game_room函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
         return server_response(conn, response);
     }
 
-    /////
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // open连接成功处理回调函数
     void handler_open(websocketpp::connection_hdl hdl)
     {
@@ -370,7 +383,9 @@ private:
         _room_manager.remove_user(ssp->get_user_id());
     }
 
-    /////
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // close连接关闭处理回调函数
     void handler_close(websocketpp::connection_hdl hdl)
     {
@@ -472,7 +487,9 @@ private:
         return rp->handle_request(response);
     }
 
-    /////
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // message消息处理回调函数
     void handler_message(websocketpp::connection_hdl hdl, server_t::message_ptr message)
     {
@@ -560,13 +577,4 @@ private:
         }
         return ssp;
     }
-
-private:
-    server_t _server;                 // 服务器类
-    std::string _wwwroot;             // web网页资源根目录
-    user_table _user_table;           // 数据库用户管理类
-    online_manager _online_manager;   // 在线用户管理类
-    room_manager _room_manager;       // 房间管理类
-    session_manager _session_manager; // session管理类
-    matcher _matcher;                 // 匹配队列管理类
 };
