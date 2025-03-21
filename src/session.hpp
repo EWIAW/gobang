@@ -39,10 +39,10 @@ public:
     uint64_t get_user_id() { return _uid; }
 
     // 设置用户id
-    void set_uid(const uint64_t &uid) { _uid = uid; }
+    void set_uid(const uint64_t &uid) { _uid = uid;return; }
 
     // 设置session状态
-    void set_status(const session_status &status) { _status = status; }
+    void set_status(const session_status &status) { _status = status;return; }
 
     // 判断是否登录
     bool is_login()
@@ -58,7 +58,7 @@ public:
     }
 
     // 设置定时器
-    void set_timer(const server_t::timer_ptr &tp) { _tp = tp; }
+    void set_timer(const server_t::timer_ptr &tp) { _tp = tp;return; }
 
     // 获取定时器
     server_t::timer_ptr get_timer() { return _tp; }

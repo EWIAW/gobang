@@ -53,6 +53,7 @@ public:
         _server.listen(port);
         _server.start_accept();
         _server.run();
+        return;
     }
 
 private:
@@ -74,6 +75,8 @@ private:
         return;
     }
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // http请求处理回调函数
     // 进行登录
     void login(server_t::connection_ptr &conn)
     {
@@ -228,12 +231,9 @@ private:
         conn->set_status(websocketpp::http::status_code::ok);
         // DLOG("退出default_page函数");
         // DLOG("----------------------------------------------------------------------------------------------------");
+        return;
     }
 
-
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // http请求处理回调函数
     void handler_http(websocketpp::connection_hdl hdl)
     {
         server_t::connection_ptr conn = _server.get_con_from_hdl(hdl);
@@ -258,6 +258,8 @@ private:
         }
     }
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // open连接成功处理回调函数，即websocekt协议升级成功
     void open_game_hall(server_t::connection_ptr &conn)
     {
         // DLOG("----------------------------------------------------------------------------------------------------");
@@ -281,7 +283,7 @@ private:
         response["optype"] = "hall_ready";
         response["result"] = true;
         server_response(conn, response);
-        // 设置session为永久存在
+        // 设置session为有限的时间
         _session_manager.set_session_expire_time(ssp->get_user_id(), SESSION_TIMEOUT);
         // DLOG("退出open_game_hall函数");
         // DLOG("----------------------------------------------------------------------------------------------------");
@@ -335,14 +337,10 @@ private:
         return server_response(conn, response);
     }
 
-
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // open连接成功处理回调函数
     void handler_open(websocketpp::connection_hdl hdl)
     {
-        DLOG("----------------------------------------------------------------------------------------------------");
-        DLOG("进入handler_open函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("进入handler_open函数");
         server_t::connection_ptr conn = _server.get_con_from_hdl(hdl);
         websocketpp::http::parser::request request = conn->get_request();
         std::string url = request.get_uri();
@@ -354,10 +352,13 @@ private:
         {
             return open_game_room(conn);
         }
-        DLOG("退出handler_open函数");
-        DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("退出handler_open函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
+        return;
     }
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // close连接关闭处理回调函数
     void close_game_hall(server_t::connection_ptr &conn)
     {
         // 将用户从大厅中移除
@@ -383,14 +384,10 @@ private:
         _room_manager.remove_user(ssp->get_user_id());
     }
 
-
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // close连接关闭处理回调函数
     void handler_close(websocketpp::connection_hdl hdl)
     {
-        DLOG("----------------------------------------------------------------------------------------------------");
-        DLOG("进入handler_close函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("进入handler_close函数");
         server_t::connection_ptr conn = _server.get_con_from_hdl(hdl);
         websocketpp::http::parser::request request = conn->get_request();
         std::string url = request.get_uri();
@@ -402,10 +399,12 @@ private:
         {
             return close_game_room(conn);
         }
-        DLOG("退出handler_close函数");
-        DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("退出handler_close函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
     }
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // message消息处理回调函数
     void message_game_hall(server_t::connection_ptr &conn, server_t::message_ptr &message)
     {
         Json::Value response; // 需要返回的json数据
@@ -418,7 +417,7 @@ private:
         }
         // 2.获取请求信息
         resquest_body = message->get_payload();
-        std::cout << "!!!!!resquest_body : " << resquest_body << std::endl;
+        // std::cout << "!!!!!resquest_body : " << resquest_body << std::endl;
         bool ret = json_util::unserialize(resquest_body, response);
         if (ret == false)
         {
@@ -429,7 +428,7 @@ private:
         if (!response["optype"].isNull() && response["optype"].asString() == "match_start")
         {
             // 开始匹配对战
-            DLOG("开始匹配对战");
+            // DLOG("开始匹配对战");
             _matcher.add(ssp->get_user_id());
             response["optype"] = "match_start";
             response["result"] = true;
@@ -487,14 +486,10 @@ private:
         return rp->handle_request(response);
     }
 
-
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // message消息处理回调函数
     void handler_message(websocketpp::connection_hdl hdl, server_t::message_ptr message)
     {
-        DLOG("----------------------------------------------------------------------------------------------------");
-        DLOG("进入handler_message函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("进入handler_message函数");
         server_t::connection_ptr conn = _server.get_con_from_hdl(hdl);
         websocketpp::http::parser::request request = conn->get_request();
         std::string url = request.get_uri();
@@ -506,8 +501,9 @@ private:
         {
             return message_game_room(conn, message);
         }
-        DLOG("退出handler_message函数");
-        DLOG("----------------------------------------------------------------------------------------------------");
+        // DLOG("退出handler_message函数");
+        // DLOG("----------------------------------------------------------------------------------------------------");
+        return;
     }
 
     // 从cookie信息中提取session的id

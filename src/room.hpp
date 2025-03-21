@@ -74,6 +74,7 @@ public:
     {
         _white_id = id;
         _play_count++;
+        return;
     }
 
     // 将黑方添加进房间
@@ -81,6 +82,7 @@ public:
     {
         _black_id = id;
         _play_count++;
+        return;
     }
 
     // 获取白方用户id
@@ -481,6 +483,7 @@ public:
         _users.erase(uid1);
         _users.erase(uid2);
         _rooms.erase(room_id);
+        return;
     }
 
     // 删除房间中指定用户，用于用户断开连接时调用

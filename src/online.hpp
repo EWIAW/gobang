@@ -18,6 +18,7 @@ public:
     {
         std::unique_lock<std::mutex> lock(_mutex);
         _hall_user.insert(std::make_pair(id, con));
+        return;
     }
 
     // 插入用户到游戏房间
@@ -25,6 +26,7 @@ public:
     {
         std::unique_lock<std::mutex> lock(_mutex);
         _game_user.insert(std::make_pair(id, con));
+        return;
     }
 
     // 将用户从游戏大厅删除
@@ -32,6 +34,7 @@ public:
     {
         std::unique_lock<std::mutex> lock(_mutex);
         _hall_user.erase(id);
+        return;
     }
 
     // 将用户从游戏房间删除
@@ -39,6 +42,7 @@ public:
     {
         std::unique_lock<std::mutex> lock(_mutex);
         _game_user.erase(id);
+        return;
     }
 
     // 判断当前用户是否在游戏大厅
