@@ -238,7 +238,7 @@ private:
     {
         server_t::connection_ptr conn = _server.get_con_from_hdl(hdl);
         websocketpp::http::parser::request req = conn->get_request(); // 获取http请求
-        std::string method = req.get_method();                        // 后去http请求的方法
+        std::string method = req.get_method();                        // 获取http请求的方法
         std::string url = req.get_uri();                              // 获取http请求的url
         if (method == "POST" && url == "/login")
         {
@@ -250,7 +250,7 @@ private:
         }
         else if (method == "GET" && url == "/information")
         {
-            return information(conn);
+            return information(conn); // 后去用户信息请求，例如用户的分数、id等
         }
         else
         {

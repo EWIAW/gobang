@@ -39,10 +39,18 @@ public:
     uint64_t get_user_id() { return _uid; }
 
     // 设置用户id
-    void set_uid(const uint64_t &uid) { _uid = uid;return; }
+    void set_uid(const uint64_t &uid)
+    {
+        _uid = uid;
+        return;
+    }
 
     // 设置session状态
-    void set_status(const session_status &status) { _status = status;return; }
+    void set_status(const session_status &status)
+    {
+        _status = status;
+        return;
+    }
 
     // 判断是否登录
     bool is_login()
@@ -58,7 +66,11 @@ public:
     }
 
     // 设置定时器
-    void set_timer(const server_t::timer_ptr &tp) { _tp = tp;return; }
+    void set_timer(const server_t::timer_ptr &tp)
+    {
+        _tp = tp;
+        return;
+    }
 
     // 获取定时器
     server_t::timer_ptr get_timer() { return _tp; }
@@ -142,9 +154,9 @@ public:
         // 获取定时器
         server_t::timer_ptr tp = sp->get_timer();
         // 1.没有定时器，且session的生命周期为永久，则什么都不干
-        // 2.没有定时器，且session的生命周期存在，则设置一个新的定时器
-        // 3.有定时器，且session的生命周期为永久，重置定时器为永久
-        // 4.有定时器，且session的生命周期存在，重置定时器时间
+        // 2.没有定时器，且session的生命周期存在，则设置一个新的定时器，，，这个时候用户处于 刚登陆状态
+        // 3.有定时器，且session的生命周期为永久，重置定时器为永久，，，这个时候用户处于 房间对战状态
+        // 4.有定时器，且session的生命周期存在，重置定时器时间，，，这个时候用户处于 刚对战完返回大厅状态
         if (tp.get() == nullptr && ms == SESSION_FOREVER)
         {
             return;
@@ -156,8 +168,8 @@ public:
         }
         else if (tp.get() != nullptr && ms == SESSION_FOREVER)
         {
-            tp->cancel(); // 取消定时器，但是取消定时器后，所有定时的任务就会被执行
-            sp->set_timer(server_t::timer_ptr());
+            tp->cancel();                         // 取消定时器，但是取消定时器后，定时的任务就会被执行，但是这个定时任务并不是立即执行的
+            sp->set_timer(server_t::timer_ptr()); // 所以要先给对于的session对象的定时器对象置为nullptr
             _server->set_timer(0, std::bind(&session_manager::append_session, this, sp));
         }
         else if (tp.get() != nullptr && ms != SESSION_FOREVER)
